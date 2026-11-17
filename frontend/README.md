@@ -47,7 +47,7 @@ Interface utilisateur de l'application de gestion de tâches **TaskFlow**, conç
 Créez un fichier `.env.local` à la racine du dossier `frontend` :
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_URL=https://taskflow-backend-k9wq.onrender.com
 ```
 > Remplacez `http://localhost:5000` par l'URL publique de votre backend Railway lors du déploiement.
 
