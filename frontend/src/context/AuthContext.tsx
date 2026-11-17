@@ -36,22 +36,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const token = localStorage.getItem('taskflow_token');
     const savedUser = localStorage.getItem('taskflow_user');
 
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUser);
+        queueMicrotask(() => {
+          if (isMounted) setUser(parsed);
+        });
       } catch {
         // Ignorer l'erreur de parsing
       }
     }
 
     if (token) {
-      refreshUser();
+      api.auth
+        .getMe()
+        .then((currentUser) => {
+          if (isMounted) {
+            setUser(currentUser);
+            localStorage.setItem('taskflow_user', JSON.stringify(currentUser));
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setUser(null);
+            removeToken();
+          }
+        })
+        .finally(() => {
+          if (isMounted) setLoading(false);
+        });
     } else {
-      setLoading(false);
+      queueMicrotask(() => {
+        if (isMounted) setLoading(false);
+      });
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -110,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
+    throw new Error("useAuth doit être utilisé à l'intérieur d'un AuthProvider");
   }
   return context;
 }

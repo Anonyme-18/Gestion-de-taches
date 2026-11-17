@@ -33,7 +33,7 @@ export default function TasksPage() {
 
   const [, startTransition] = useTransition();
 
-  const fetchTasks = async () => {
+  const reloadTasks = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -47,13 +47,30 @@ export default function TasksPage() {
   };
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated) {
-        router.push('/login');
-      } else {
-        fetchTasks();
-      }
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
     }
+
+    let isMounted = true;
+    api.tasks
+      .getAll()
+      .then((data) => {
+        if (isMounted) setTasks(data || []);
+      })
+      .catch((err: unknown) => {
+        if (isMounted) {
+          setError((err as Error)?.message || 'Impossible de récupérer la liste des tâches.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [authLoading, isAuthenticated, router]);
 
   // Création ou modification
@@ -70,7 +87,7 @@ export default function TasksPage() {
       await api.tasks.create(data);
     }
     startTransition(() => {
-      fetchTasks();
+      void reloadTasks();
     });
   };
 
@@ -82,7 +99,7 @@ export default function TasksPage() {
       await api.tasks.delete(deletingTask.id);
       setDeletingTask(null);
       startTransition(() => {
-        fetchTasks();
+        void reloadTasks();
       });
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Échec de la suppression de la tâche.');
@@ -101,7 +118,7 @@ export default function TasksPage() {
       );
     } catch (err: unknown) {
       setError((err as Error)?.message || 'Impossible de mettre à jour le statut.');
-      fetchTasks();
+      void reloadTasks();
     }
   };
 
@@ -143,7 +160,7 @@ export default function TasksPage() {
   return (
     <div className="space-y-6">
       {/* Alerte Erreur / Coupure réseau */}
-      <ApiStatusBanner error={error} onRetry={fetchTasks} />
+      <ApiStatusBanner error={error} onRetry={reloadTasks} />
 
       {/* En-tête avec bouton Créer */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

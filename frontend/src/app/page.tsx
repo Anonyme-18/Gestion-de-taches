@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -21,9 +21,8 @@ export default function DashboardPage() {
 
   // Modal d'ajout rapide
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [, startTransition] = useTransition();
 
-  const fetchTasks = async () => {
+  const reloadTasks = async () => {
     setLoadingTasks(true);
     setError(null);
     try {
@@ -37,13 +36,30 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated) {
-        router.push('/login');
-      } else {
-        fetchTasks();
-      }
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
     }
+
+    let isMounted = true;
+    api.tasks
+      .getAll()
+      .then((data) => {
+        if (isMounted) setTasks(data || []);
+      })
+      .catch((err: unknown) => {
+        if (isMounted) {
+          setError((err as Error)?.message || 'Erreur lors du chargement des tâches.');
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoadingTasks(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [authLoading, isAuthenticated, router]);
 
   const handleCreateTask = async (taskData: {
@@ -54,9 +70,7 @@ export default function DashboardPage() {
     due_date?: string | null;
   }) => {
     await api.tasks.create(taskData);
-    startTransition(() => {
-      fetchTasks();
-    });
+    await reloadTasks();
   };
 
   if (authLoading || (!isAuthenticated && !authLoading)) {
@@ -84,7 +98,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Bannière d'alerte en cas de panne de la passerelle / tunnel */}
-      <ApiStatusBanner error={error} onRetry={fetchTasks} />
+      <ApiStatusBanner error={error} onRetry={reloadTasks} />
 
       {/* En-tête du tableau de bord */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
