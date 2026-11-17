@@ -1,6 +1,19 @@
 import { AuthResponse, Task, TaskStatus, User } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://taskflow-backend-k9wq.onrender.com';
+function getApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+  // Si l'application tourne en HTTPS (sur Vercel) et que la variable pointe vers localhost ou est vide
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))
+  ) {
+    return 'https://taskflow-backend-k9wq.onrender.com';
+  }
+
+  return envUrl || 'https://taskflow-backend-k9wq.onrender.com';
+}
 
 class ApiError extends Error {
   status?: number;
@@ -30,7 +43,8 @@ export function removeToken() {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL.replace(/\/$/, '')}${endpoint}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
   const token = getToken();
 
   const headers: HeadersInit = {
@@ -75,6 +89,8 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       throw err;
     }
 
+    console.warn(`[TaskFlow API] Échec de la requête vers ${url}:`, err);
+
     // Gestion explicite des erreurs réseau / indisponibilité de l'infrastructure
     const isNetworkError =
       err instanceof TypeError &&
@@ -84,7 +100,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
     if (isNetworkError) {
       throw new ApiError(
-        "Impossible de joindre le service de données. Veuillez vérifier si l'API ou le tunnel Cloudflare est actif.",
+        `Impossible de joindre le service de données (${url}). Vérifiez la connexion au backend Render ou l'état du serveur.`,
         0
       );
     }
