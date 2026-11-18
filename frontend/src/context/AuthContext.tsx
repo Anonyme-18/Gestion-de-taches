@@ -52,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (token) {
+      // Inline de la logique de refreshUser pour respecter la règle ESLint set-state-in-effect
       api.auth
         .getMe()
         .then((currentUser) => {

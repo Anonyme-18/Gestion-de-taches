@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { Navbar } from '@/components/Navbar';
+import { RenderWakeup } from '@/components/ApiStatusBanner';
 
 export const metadata: Metadata = {
   title: 'TaskFlow – Application Web de gestion de tâches',
@@ -19,6 +20,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <RenderWakeup />
             {children}
           </main>
         </AuthProvider>
