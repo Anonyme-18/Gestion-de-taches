@@ -1,18 +1,18 @@
 import { AuthResponse, Task, TaskStatus, User } from '@/types';
 
+// URL du backend Render
+export const RENDER_BACKEND_URL = 'https://taskflow-backend-k9wq.onrender.com';
+
 function getApiBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
 
-  // Si l'application tourne en HTTPS (sur Vercel) et que la variable pointe vers localhost ou est vide
-  if (
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))
-  ) {
-    return 'https://taskflow-backend-k9wq.onrender.com';
+  // Si l'URL d'environnement est vide ou pointe vers localhost:5000,
+  // nous utilisons directement l'URL Render en ligne.
+  if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+    return RENDER_BACKEND_URL;
   }
 
-  return envUrl || 'https://taskflow-backend-k9wq.onrender.com';
+  return envUrl;
 }
 
 class ApiError extends Error {
@@ -59,22 +59,27 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       headers,
     });
 
-    if (response.status === 401) {
-      removeToken();
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
-      }
-      throw new ApiError('Session expirée ou non autorisée. Veuillez vous reconnecter.', 401);
-    }
-
     if (!response.ok) {
       let errorMessage = `Erreur ${response.status}: ${response.statusText}`;
       try {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        // Ignorer si la réponse n'est pas du JSON
+        // Ignorer si le corps n'est pas du JSON
       }
+
+      if (response.status === 401) {
+        removeToken();
+        // Rediriger uniquement si l'utilisateur n'est pas déjà sur la page login ou register
+        if (
+          typeof window !== 'undefined' &&
+          !window.location.pathname.startsWith('/login') &&
+          !window.location.pathname.startsWith('/register')
+        ) {
+          window.location.href = '/login';
+        }
+      }
+
       throw new ApiError(errorMessage, response.status);
     }
 
@@ -100,7 +105,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
     if (isNetworkError) {
       throw new ApiError(
-        `Impossible de joindre le service de données (${url}). Vérifiez la connexion au backend Render ou l'état du serveur.`,
+        `Impossible de joindre le serveur de données (${url}). Le serveur Render est peut-être en cours de réveil (cela peut prendre ~40s). Veuillez patienter ou réactualiser.`,
         0
       );
     }
